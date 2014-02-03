@@ -3,35 +3,67 @@ require File.expand_path("../spec_helper", __FILE__)
 
 not_compliant_on [:webdriver, :safari] do
   describe Watir::Wait do
+    describe '#use_timeout?' do
+      it 'returns false by default' do
+        expect(Wait.use_timeout?).to eq(false)
+      end
+    end
+
     describe "#until" do
-      it "waits until the block returns true" do
-        expect(Wait.until(0.5) { true }).to be_true
+      shared_examples :until do
+        it "waits until the block returns true" do
+          expect(Wait.until(0.5) { true }).to be_true
+        end
+
+        it "times out" do
+          expect {Wait.until(0.5) { false }}.to raise_error(Watir::Wait::TimeoutError)
+        end
+
+        it "times out with a custom message" do
+          expect {
+            Wait.until(0.5, "oops") { false }
+          }.to raise_error(Watir::Wait::TimeoutError, "timed out after 0.5 seconds, oops")
+        end
       end
 
-      it "times out" do
-        expect {Wait.until(0.5) { false }}.to raise_error(Watir::Wait::TimeoutError)
+      context 'using time' do
+        it_behaves_like :until
       end
 
-      it "times out with a custom message" do
-        expect {
-          Wait.until(0.5, "oops") { false }
-        }.to raise_error(Watir::Wait::TimeoutError, "timed out after 0.5 seconds, oops")
+      context 'using timeout' do
+        before(:all) { Watir::Wait.use_timeout = true }
+        after(:all) { Watir::Wait.use_timeout = false }
+
+        it_behaves_like :until
       end
     end
 
     describe "#while" do
-      it "waits while the block returns true" do
-        expect(Wait.while(0.5) { false }).to be_nil
+      shared_examples :while do
+        it "waits while the block returns true" do
+          expect(Wait.while(0.5) { false }).to be_nil
+        end
+
+        it "times out" do
+          expect {Wait.while(0.5) { true }}.to raise_error(Watir::Wait::TimeoutError)
+        end
+
+        it "times out with a custom message" do
+          expect {
+            Wait.while(0.5, "oops") { true }
+          }.to raise_error(Watir::Wait::TimeoutError, "timed out after 0.5 seconds, oops")
+        end
       end
 
-      it "times out" do
-        expect {Wait.while(0.5) { true }}.to raise_error(Watir::Wait::TimeoutError)
+      context 'using time' do
+        it_behaves_like :while
       end
 
-      it "times out with a custom message" do
-        expect {
-          Wait.while(0.5, "oops") { true }
-        }.to raise_error(Watir::Wait::TimeoutError, "timed out after 0.5 seconds, oops")
+      context 'using timeout' do
+        before(:all) { Watir::Wait.use_timeout = true }
+        after(:all) { Watir::Wait.use_timeout = false }
+
+        it_behaves_like :while
       end
     end
   end
@@ -62,7 +94,7 @@ not_compliant_on [:webdriver, :safari] do
       it "times out when given a block" do
         expect { browser.div(:id, 'bar').when_present(1) {}}.to raise_error(Watir::Wait::TimeoutError)
       end
-      
+
       not_compliant_on :watir_classic do
         it "times out when not given a block" do
           expect { browser.div(:id, 'bar').when_present(1).click }.to raise_error(Watir::Wait::TimeoutError,
@@ -70,7 +102,7 @@ not_compliant_on [:webdriver, :safari] do
           )
         end
       end
-      
+
       deviates_on :watir_classic do
         it "times out when not given a block" do
           expect { browser.div(:id, 'bar').when_present(1).click }.to raise_error(Watir::Wait::TimeoutError,
@@ -134,7 +166,7 @@ not_compliant_on [:webdriver, :safari] do
           )
         end
       end
-      
+
       deviates_on :watir_classic do
         it "times out if the element doesn't disappear" do
           expect { browser.div(:id, 'foo').wait_while_present(1) }.to raise_error(Watir::Wait::TimeoutError,
@@ -148,15 +180,15 @@ not_compliant_on [:webdriver, :safari] do
   describe "Watir.default_timeout" do
     before do
       Watir.default_timeout = 1
-      
+
       browser.goto WatirSpec.url_for("wait.html", :needs_server => true)
     end
 
     after do
       # Reset the default timeout
       Watir.default_timeout = 30
-    end   
-    
+    end
+
     context "when no timeout is specified" do
       it "is used by Wait#until" do
         expect {
@@ -169,7 +201,7 @@ not_compliant_on [:webdriver, :safari] do
           Wait.while { true }
         }.to raise_error(Watir::Wait::TimeoutError)
       end
-    
+
       it "is used by Element#when_present" do
         expect {
           browser.div(:id, 'bar').when_present.click
@@ -186,7 +218,7 @@ not_compliant_on [:webdriver, :safari] do
         expect {
           browser.div(:id, 'foo').wait_while_present
         }.to raise_error(Watir::Wait::TimeoutError)
-      end    
+      end
     end
   end
 end
